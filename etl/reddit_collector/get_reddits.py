@@ -1,5 +1,3 @@
-import requests
-from requests.auth import HTTPBasicAuth
 import praw
 import sys
 from  pprint import pprint
@@ -41,5 +39,5 @@ def extraction_loop(time_filter="all", limit=500):
         except pymongo.errors.DuplicateKeyError:
             continue
 
-#extraction_loop(time_filter="all", limit=500)
-extraction_loop(time_filter="year", limit=10000)
+extraction_loop(time_filter="all", limit=20000)
+#extraction_loop(time_filter="year", limit=10000)
