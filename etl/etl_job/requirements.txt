@@ -1,0 +1,5 @@
+pymongo
+SQLAlchemy
+psycopg2
+pandas
+python-dotenv

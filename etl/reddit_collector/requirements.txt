@@ -1,0 +1,5 @@
+pymongo
+requests
+dnspython
+python-dotenv
+praw

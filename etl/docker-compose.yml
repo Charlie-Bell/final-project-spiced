@@ -1,0 +1,40 @@
+version: '3'
+services:
+
+  mongodb:
+    container_name: mongodb
+    image: mongo
+    ports:
+    - 27017:27017
+
+  postgresdb:
+    container_name: postgresdb
+    image: postgres
+    ports:
+    - 5555:5432
+    environment:
+    - POSTGRES_USER=postgres
+    - POSTGRES_PASSWORD=postgres
+    - POSTGRES_DB=postgresdb
+    depends_on:
+    - mongodb
+
+  reddit_collector:
+    container_name: reddit_collector
+    build: ./reddit_collector/
+    image: reddit_collector
+    volumes:
+    - ./reddit_collector/:/app
+    depends_on:
+    - mongodb    
+
+  etl_job:
+    container_name: etl
+    build: ./etl_job/
+    image: etl
+    volumes:
+    - ./etl_job/:/app
+    depends_on:
+    - mongodb
+    - postgresdb
+    - reddit_collector
