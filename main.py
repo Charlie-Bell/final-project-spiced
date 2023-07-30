@@ -91,10 +91,10 @@ def index():
     if request.method == 'POST':
         data_json = request.get_json()
         print(data_json)
-        input_text = data_json['input_text']
+        input_text = data_json['comment']
         print(input_text)
         response_text = run_pipeline(input_text)
-        response = jsonify({'response_text': response_text})
+        response = jsonify(response_text)
         print(response)
     return response
 
