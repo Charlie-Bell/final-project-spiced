@@ -23,6 +23,8 @@ def regex_text(text):
             return text
 
 def run_pipeline(input_text):
+    input_text = html.escape(input_text)
+
     # Generate
     sep_token = "<|reply|>"
     model_inputs = tokenizer_gpt([" ".join([input_text, sep_token])], return_tensors='pt').to(device)
