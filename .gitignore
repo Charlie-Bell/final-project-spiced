@@ -4,3 +4,9 @@ output/*
 models/*
 
 data/preprocessed
+data/preprocessed_
+
+presentation.odp
+*presentation*
+
+*__pycache__
