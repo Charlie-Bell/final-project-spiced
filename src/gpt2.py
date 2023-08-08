@@ -84,25 +84,33 @@ class Generator:
         # If user wants to use a different dataset
         if not df:
             if DATA_PATH:
-                df = pd.read_csv(DATA_PATH)
+                df = pd.read_csv(DATA_PATH, index_col='Unnamed: 0')
             else:
-                df = pd.read_csv(self.DATA_PROC_DIR+"gpt2_preprocessed.csv")
-
+                df = pd.read_csv(self.DATA_PROC_DIR + "gpt2_preprocessed.csv", index_col='Unnamed: 0')
+                print("Read dataset dict.")
 
         # Stringify
         prompts = df['prompt'].to_list()
         completions = df['completion'].to_list()
 
         # Insert Tokens
-        texts = [self.insert_tokens(pair) for pair in zip(prompts, completions)]
+        df['text'] = [self.insert_tokens(pair) for pair in zip(prompts, completions)]
 
         # Define split
-        texts_size = len(texts)
+        texts_size = len(df)
         train_size = int(self.TRAIN_RATIO*texts_size)
 
         # Split
-        texts_train = texts[:train_size]
-        texts_validation = texts[train_size:]
+        train = df[:train_size]
+        validation = df[train_size:]
+
+        # Export
+        train.to_csv(self.DATA_PROC_DIR + "train.csv")
+        validation.to_csv(self.DATA_PROC_DIR + "validation.csv")
+
+        # Get text values
+        texts_train = train['text'].values.astype(str).tolist()
+        texts_validation = validation['text'].values.astype(str).tolist()
 
         # Convert to DatasetDict
         dataset = dict()
