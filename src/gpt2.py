@@ -2,23 +2,25 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, DataCollatorForLan
 from datasets import Dataset, DatasetDict
 from datetime import datetime
 import pandas as pd
-import torch
+from torch import cuda
 import os
 import html
 
 class Generator:
     def __init__(self,
-                MODEL_DIR="models/gpt2",
-                MODEL_PATH="distilgpt2",
-                DATA_RAW_DIR="./data/raw/",
-                DATA_PROC_DIR="./data/preprocessed/",
-                EOS_TOKEN='<|endoftext|>',
-                SEP_TOKEN='<|reply|>',
-                MAX_LENGTH=512,
-                TRAIN_RATIO=0.9,
-                BATCH_SIZE=2,
-                EPOCHS=2,
-                SEED=42):
+                 MODEL_DIR="models/gpt2",
+                 MODEL_PATH="distilgpt2",
+                 DATA_RAW_DIR="./data/raw/",
+                 DATA_PROC_DIR="./data/preprocessed/",
+                 EOS_TOKEN='<|endoftext|>',
+                 SEP_TOKEN='<|reply|>',
+                 MAX_LENGTH=512,
+                 TRAIN_RATIO=0.9,
+                 BATCH_SIZE=2,
+                 EPOCHS=2,
+                 LEARNING_RATE=2e-5,
+                 SEED=42
+                 ):
         
         """
         Can load model for training e.g.
@@ -41,10 +43,11 @@ class Generator:
         self.TRAIN_RATIO = TRAIN_RATIO
         self.BATCH_SIZE = BATCH_SIZE
         self.EPOCHS = EPOCHS
+        self.LEARNING_RATE = LEARNING_RATE
         self.SEED = SEED
 
         # Device
-        self.torch_device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.torch_device = "cuda" if cuda.is_available() else "cpu"
         print("Using device: " + self.torch_device)
 
         # Tokenizer + Model + Data Collator
@@ -144,7 +147,7 @@ class Generator:
         training_args = TrainingArguments(
             output_dir=self.MODEL_DIR,
             evaluation_strategy="epoch",
-            learning_rate=2e-5,
+            learning_rate=self.LEARNING_RATE,
             weight_decay=0.01,
             per_device_train_batch_size=self.BATCH_SIZE,
             per_device_eval_batch_size=self.BATCH_SIZE,
@@ -199,6 +202,6 @@ class Generator:
         for i, sample_output in enumerate(sample_outputs):
             text = self.tokenizer.decode(sample_output, skip_special_tokens=False).split(self.SEP_TOKEN)[1].split('\n')[0][1:]
             texts.append(text)
-            print(text)
+            #print(text)
 
         return texts

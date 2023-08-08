@@ -6,6 +6,7 @@ import html
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from src.gpt2 import Generator
+from src.bert_discriminator import Discriminator
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -14,7 +15,7 @@ print(device)
 # Tokenizers + Models
 generator = Generator(MODEL_PATH="./models/gpt2/final")
 tokenizer_bert = AutoTokenizer.from_pretrained('distilbert-base-cased', do_lower_case=True) # Need to retrain with do_lower_case=False
-discriminator = AutoModelForSequenceClassification.from_pretrained('./models/bert_discriminator/final').to(device)
+discriminator = Discriminator(MODEL_PATH="./models/bert_discriminator/final")
 predictor = AutoModelForSequenceClassification.from_pretrained('./models/bert_predictor/final').to(device)
 
 def regex_text(text):
@@ -28,16 +29,9 @@ def run_pipeline(input_text):
     realistic_texts = []
     while not realistic_texts:
         texts = generator.inference(input_text)
-        # Discriminate
-        texts = [regex_text(text) for text in texts[:]]
-        for text in texts:
-            test_input = tokenizer_bert(text, return_tensors='pt').to(device)
-            with torch.no_grad():
-                logits = discriminator(**test_input).logits
-
-            predicted_class_id = logits.argmax().item()
-            if not predicted_class_id:
-                realistic_texts.append(text)
+        realistic_texts = discriminator.discriminate(texts)
+        print("--------------Realistic texts----------------")
+        print(realistic_texts)
 
     # Predict
     scores = []
