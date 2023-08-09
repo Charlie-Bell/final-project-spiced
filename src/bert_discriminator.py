@@ -14,7 +14,7 @@ class Discriminator():
                  DATA_RAW_DIR="./data/raw/",
                  DATA_PROC_DIR="./data/preprocessed/",
                  EOS_TOKEN='<|endoftext|>',
-                 SEP_TOKEN='<\|reply\|>',
+                 SEP_TOKEN='<|reply|>',
                  MAX_LENGTH=512,
                  TRAIN_RATIO=0.9,
                  BATCH_SIZE=4,
@@ -139,7 +139,6 @@ class Discriminator():
                 logits = self.model(**test_input).logits
 
             predicted_class_id = logits.argmax().item()
-            print(predicted_class_id)
 
             if not predicted_class_id:
                 realistic_texts.append(text)

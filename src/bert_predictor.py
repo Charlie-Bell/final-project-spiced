@@ -15,7 +15,7 @@ class Predictor():
                  DATA_RAW_DIR="./data/raw/",
                  DATA_PROC_DIR="./data/preprocessed/",
                  EOS_TOKEN='<|endoftext|>',
-                 SEP_TOKEN='<\|reply\|>',
+                 SEP_TOKEN='<|reply|>',
                  MAX_LENGTH=512,
                  TRAIN_RATIO=0.9,
                  BATCH_SIZE=4,
@@ -73,9 +73,7 @@ class Predictor():
     # To do: Fit scale to training data only
     def scale(self, df, cols=['comment_score', 'reply_score']):
         min_score = df[cols].min().min()
-        print("Min score: ", min_score)
         max_score = df[cols].max().max()
-        print("Max score: ", max_score)
         for col in cols:
             df[col+"_scaled"] = df[col]
             col = col+"_scaled"
@@ -84,9 +82,7 @@ class Predictor():
 
         cols = ['comment_score_scaled', 'reply_score_scaled']
         min_score = df[cols].min().min()
-        print("Min score: ", min_score)
         max_score = df[cols].max().max()
-        print("Max score: ", max_score)
         for col in cols:
             df[col] = df[col].apply(self.minmax_scale, args=(min_score, max_score))
         return df
@@ -161,7 +157,6 @@ class Predictor():
     def predict(self, realistic_texts):
         scores = []
         for i, text in enumerate(realistic_texts):
-            print(str(i) + ": " + text)
             test_input = self.tokenizer(text, return_tensors='pt').to(self.torch_device)
             with no_grad():
                 output = self.model(**test_input)

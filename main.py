@@ -24,9 +24,7 @@ def inference_pipeline(input_text):
         'reply': output_text,
     }
 
-    # Result should be response
     print(response)
-
     return response
 
 # --- Flask App --- #

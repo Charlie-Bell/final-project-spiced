@@ -90,7 +90,6 @@ class Generator:
                 df = pd.read_csv(DATA_PATH, index_col='Unnamed: 0')
             else:
                 df = pd.read_csv(self.DATA_PROC_DIR + "gpt2_preprocessed.csv", index_col='Unnamed: 0')
-                print("Read dataset dict.")
 
         # Stringify
         prompts = df['prompt'].to_list()
@@ -196,12 +195,11 @@ class Generator:
             top_k=50,
             top_p=0.95,
             temperature=0.8,
-            num_return_sequences=50,
+            num_return_sequences=150,
             )   
         
         for i, sample_output in enumerate(sample_outputs):
             text = self.tokenizer.decode(sample_output, skip_special_tokens=False).split(self.SEP_TOKEN)[1].split('\n')[0][1:]
             texts.append(text)
-            print(text)
 
         return texts
