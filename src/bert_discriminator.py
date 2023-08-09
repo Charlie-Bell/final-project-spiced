@@ -49,22 +49,25 @@ class Discriminator():
     def regex_text(self, text):
         text = html.unescape(text)
         text = re.sub(r"\\'", r"'", text)
-        text = re.sub(r"\s+$", '', text)    
-        if type(text)==str:
-            return text
-        return re.findall(self.SEP_TOKEN + " (,?.*)", text)
+        text = re.sub(r"\s+$", '', text)  
+        texts = re.findall(self.SEP_TOKEN + " (,?.*)", text)
+        for t in texts:
+            if t:
+                text = t
+                break
+        text = text.rstrip()
+        return text
 
     def label_to_list(self, label):
-        if label:
-            return [1]
-        else:
-            return [0]
+            if label:
+                return [1]
+            else:
+                return [0]
 
     def clean_dataframe(self, df):
-        df = df[df['text'].str.contains(self.sep_token)]
+        df = df[df['text'].str.contains(self.SEP_TOKEN)]
         df['text'] = df['text'].apply(self.regex_text)
         df = df[df['text'].str.len() != 0]
-        df['text'] = df['text'].apply(lambda x: x[0])
         df['label'] = df['label'].apply(self.label_to_list)
         return df
     

@@ -18,20 +18,12 @@ tokenizer_bert = AutoTokenizer.from_pretrained('distilbert-base-cased', do_lower
 discriminator = Discriminator(MODEL_PATH="./models/bert_discriminator/final")
 predictor = AutoModelForSequenceClassification.from_pretrained('./models/bert_predictor/final').to(device)
 
-def regex_text(text):
-            text = html.unescape(text)
-            text = re.sub(r"\\'", r"'", text)
-            text = re.sub(r"\s+$", '', text)    
-            return text
-
 def run_pipeline(input_text):
 
     realistic_texts = []
     while not realistic_texts:
         texts = generator.inference(input_text)
         realistic_texts = discriminator.discriminate(texts)
-        print("--------------Realistic texts----------------")
-        print(realistic_texts)
 
     # Predict
     scores = []
