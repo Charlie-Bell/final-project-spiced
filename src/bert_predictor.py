@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from datasets import Dataset, DatasetDict
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments, DataCollatorWithPadding
 from torch import cuda, no_grad
@@ -7,9 +8,9 @@ import html
 from datetime import datetime
 
 
-class Discriminator():
+class Predictor():
     def __init__(self,
-                 MODEL_DIR="models/bert_discriminator",
+                 MODEL_DIR="models/bert_predictor",
                  MODEL_PATH="distilbert-base-cased",
                  DATA_RAW_DIR="./data/raw/",
                  DATA_PROC_DIR="./data/preprocessed/",
@@ -43,7 +44,7 @@ class Discriminator():
 
         # Tokenizer + Model
         self.tokenizer = AutoTokenizer.from_pretrained('distilbert-base-cased', do_lower_case=True) # !!!!need to retrain with do_lower_case=False
-        self.model = AutoModelForSequenceClassification.from_pretrained(self.MODEL_PATH).to(self.torch_device)
+        self.model = AutoModelForSequenceClassification.from_pretrained(self.MODEL_PATH, num_labels=1).to(self.torch_device)
         self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
 
     def regex_text(self, text):
@@ -57,45 +58,73 @@ class Discriminator():
                 break
         text = text.rstrip()
         return text
-
-    def label_to_list(self, label):
-            if label:
-                return [1]
-            else:
-                return [0]
-
+    
     def clean_dataframe(self, df):
-        df = df[df['text'].str.contains(self.SEP_TOKEN)]
-        df['text'] = df['text'].apply(self.regex_text)
-        df = df[df['text'].str.len() != 0]
-        df['label'] = df['label'].apply(self.label_to_list)
+        df['completion'] = df['completion'].astype(str)
+        df['completion'] = df['completion'].apply(self.regex_text)
+        df = df[df['completion'].str.len() != 0]
+        return df
+    
+    def minmax_scale(self, X, X_min, X_max):
+        X_scaled = (X - X_min) / (X_max - X_min)
+        return X_scaled
+
+    # Scaling is [MinMax -> np.exp -> MinMax] such that the comments/replies with a higher count have more influence
+    # To do: Fit scale to training data only
+    def scale(self, df, cols=['comment_score', 'reply_score']):
+        min_score = df[cols].min().min()
+        print("Min score: ", min_score)
+        max_score = df[cols].max().max()
+        print("Max score: ", max_score)
+        for col in cols:
+            df[col+"_scaled"] = df[col]
+            col = col+"_scaled"
+            df[col] = df[col].apply(self.minmax_scale, args=(min_score, max_score))
+            df[col] = df[col].apply(np.exp)
+
+        cols = ['comment_score_scaled', 'reply_score_scaled']
+        min_score = df[cols].min().min()
+        print("Min score: ", min_score)
+        max_score = df[cols].max().max()
+        print("Max score: ", max_score)
+        for col in cols:
+            df[col] = df[col].apply(self.minmax_scale, args=(min_score, max_score))
+        return df
+    
+    def scale_dataframe(self, df):
+        df = self.scale(df)
+        df['reply_score_minmax'] = df['reply_score'].apply(self.minmax_scale, args=(df['reply_score'].min(), df['reply_score'].max()))
+        df['score_ratio'] = df['reply_score_scaled']/df['comment_score_scaled']
         return df
     
     def tokenize_function(self, examples):
-        return self.tokenizer(examples["text"], truncation=True, padding=True, max_length=self.MAX_LENGTH)
-
+        return self.tokenizer(examples["completion"], truncation=True, padding=True, max_length=self.MAX_LENGTH)
+    
     def preprocessing(self):
-        ### Preprocessing
-        train = pd.read_csv(self.DATA_PROC_DIR + "/train_fakes.csv", index_col=0, encoding='utf-8', engine='python')
-        validation = pd.read_csv(self.DATA_PROC_DIR + "/validation_fakes.csv", index_col=0, encoding='utf-8', engine='python')
-
+        validation = pd.read_csv(self.DATA_PROC_DIR + '/validation.csv', index_col=0)[['completion', 'comment_score', 'reply_score']]
         validation = self.clean_dataframe(validation)
+        validation = self.scale_dataframe(validation)
+        validation = validation[['completion', 'reply_score_minmax']].rename(columns={'reply_score_minmax': 'label'})
+
+        train = pd.read_csv(self.DATA_PROC_DIR + '/train.csv', index_col=0)[['completion', 'comment_score', 'reply_score']]
         train = self.clean_dataframe(train)
+        train = self.scale_dataframe(train)
+        train = train[['completion', 'reply_score_minmax']].rename(columns={'reply_score_minmax': 'label'})
 
         dataset = dict()
         dataset['validation'] = Dataset.from_pandas(validation, preserve_index=False)
         dataset['train'] = Dataset.from_pandas(train, preserve_index=False)
         datasets = DatasetDict(dataset)
 
-        tokenized_datasets = datasets.map(
+        datasets = datasets.map(
             self.tokenize_function,
             batched=True,
             num_proc=1,
-            remove_columns=["text"],
+            remove_columns=["completion"],
             )
 
-        return tokenized_datasets
-
+        return datasets
+    
     def train_model(self, dataset, SAVE_STEPS=10000, model_name=None):
         training_args = TrainingArguments(
             output_dir=self.MODEL_DIR,
@@ -125,23 +154,19 @@ class Discriminator():
             dt_string = now.strftime("%Y-%m-%d_%H:%M:%S")
             trainer.save_model(self.MODEL_DIR + "/model-" + dt_string)
 
-        
     def run_training_pipeline(self):
         dataset = self.preprocessing()
         self.train_model(dataset)
 
-    def discriminate(self, texts):
-        realistic_texts = []
-        texts = [self.regex_text(text) for text in texts[:]]
-        for text in texts:
+    def predict(self, realistic_texts):
+        scores = []
+        for i, text in enumerate(realistic_texts):
+            print(str(i) + ": " + text)
             test_input = self.tokenizer(text, return_tensors='pt').to(self.torch_device)
             with no_grad():
-                logits = self.model(**test_input).logits
+                output = self.model(**test_input)
 
-            predicted_class_id = logits.argmax().item()
-            print(predicted_class_id)
+            scores.append(output.logits[0][0].cpu().numpy())
 
-            if not predicted_class_id:
-                realistic_texts.append(text)
-
-        return realistic_texts
+        output_text = realistic_texts[np.argmax(scores)]
+        return output_text

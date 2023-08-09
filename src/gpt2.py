@@ -178,7 +178,7 @@ class Generator:
         dataset = self.preprocess_dataset_dict(dataset)
         self.train_model(dataset)
 
-    def inference(self, input_text):
+    def generate_candidates(self, input_text):
         # Convert to regular text
         input_text = html.unescape(input_text)
 
@@ -196,12 +196,12 @@ class Generator:
             top_k=50,
             top_p=0.95,
             temperature=0.8,
-            num_return_sequences=20,
+            num_return_sequences=50,
             )   
         
         for i, sample_output in enumerate(sample_outputs):
             text = self.tokenizer.decode(sample_output, skip_special_tokens=False).split(self.SEP_TOKEN)[1].split('\n')[0][1:]
             texts.append(text)
-            #print(text)
+            print(text)
 
         return texts

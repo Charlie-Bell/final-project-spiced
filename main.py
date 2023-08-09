@@ -1,40 +1,23 @@
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
-import torch
-import numpy as np
-import re
 import html
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from src.gpt2 import Generator
 from src.bert_discriminator import Discriminator
+from src.bert_predictor import Predictor
 
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-print(device)
-
-# Tokenizers + Models
+# --- Generator -> Discriminator -> Predictor --- #
 generator = Generator(MODEL_PATH="./models/gpt2/final")
-tokenizer_bert = AutoTokenizer.from_pretrained('distilbert-base-cased', do_lower_case=True) # Need to retrain with do_lower_case=False
 discriminator = Discriminator(MODEL_PATH="./models/bert_discriminator/final")
-predictor = AutoModelForSequenceClassification.from_pretrained('./models/bert_predictor/final').to(device)
+predictor = Predictor(MODEL_PATH="./models/bert_predictor/final")
 
-def run_pipeline(input_text):
-
+def inference_pipeline(input_text):
     realistic_texts = []
     while not realistic_texts:
-        texts = generator.inference(input_text)
-        realistic_texts = discriminator.discriminate(texts)
+        candidate_texts = generator.generate_candidates(input_text)
+        realistic_texts = discriminator.discriminate(candidate_texts)
 
-    # Predict
-    scores = []
-    for text in realistic_texts:
-        test_input = tokenizer_bert(text, return_tensors='pt').to(device)
-        with torch.no_grad():
-            output = predictor(**test_input)
-
-        scores.append(output.logits[0][0].cpu().numpy())
-
-    output_text = realistic_texts[np.argmax(scores)]
+    output_text = predictor.predict(realistic_texts)
 
     response = {
         'comment': html.unescape(input_text),
@@ -46,8 +29,7 @@ def run_pipeline(input_text):
 
     return response
 
-
-
+# --- Flask App --- #
 app = Flask(__name__)
 CORS(app)
 
@@ -60,7 +42,7 @@ def index():
         print(data_json)
         input_text = data_json['comment']
         print(input_text)
-        response_text = run_pipeline(input_text)
+        response_text = inference_pipeline(input_text)
         response = jsonify(response_text)
         print(response)
     return response
